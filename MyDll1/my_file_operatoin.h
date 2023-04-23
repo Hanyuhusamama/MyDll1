@@ -3,11 +3,13 @@
 
 #include<iostream>
 
+#ifndef MY_API
 #ifdef _USRDLL
 #define MY_API __declspec(dllexport)
 #else
 #define MY_API __declspec(dllimport)
 #endif 
+#endif // !MY_API
 #if _WIN64 
 #define _MY_PTR_STORE_TYPE unsigned long long int
 #else 
@@ -75,6 +77,7 @@ public:
 	~MyMapArray();
 	MyMap& back();
 	MyMap& at(unsigned indix);
+	void _Get_str_(char* buffer);
 private:
 	MyMap* my_data;
 	unsigned my_capacity;
@@ -97,22 +100,22 @@ public:
 	MyFile(const MyFile& _b) = delete;
 	bool open(const char* filename, unsigned OpenFlag, MapMode _mode = MapAll);
 	void close();
-	void read(void* _Buffer, unsigned _count);
+	void read(char* _Buffer, unsigned _count);
 	void write(void* _src, unsigned _count);
 	struct Myptr {
 		void* ptr;
 		unsigned _block_size;
 	};
-	Myptr GetioPointer();
 	MyFile& operator>>(char*);
+	static void _nosafe_copy(void* dst, const void* src, unsigned cnt);
 private:
 	static constexpr unsigned FILE_OPEN_SUCCESSFUL = 8;
 	bool _open(const char* path);
 	void _close();
-	void _write(unsigned long long write_at_where_, const void* Src, unsigned count);
+	void _write(unsigned long long write_at_where_, const char* Src, unsigned count);
+	void _read(unsigned long long _at, char* buffer, unsigned count);
 	HANDLE hFile;
 	HANDLE hMapFile;
-	void* base;
 	MapMode mode;
 	unsigned FileOpenFlag;
 	MyFilePointer io_ptr;
@@ -121,7 +124,6 @@ private:
 	int _MyCreateFile(const wchar_t* _path);
 	void create_file_map();
 	MyMap _map_1(unsigned long long offset);
-	static void _nosafe_copy(void* dst, const void* src, unsigned cnt);
 	void _space_enlarge(unsigned long long _nw_capa);
 };
 

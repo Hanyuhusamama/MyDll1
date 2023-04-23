@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "my_file_operatoin.h"
+#include<xmmintrin.h>
 #include<new>
 
 #if _WIN64
@@ -127,9 +128,14 @@ MyMap& MyMapArray::at(unsigned indix)
     return my_data[indix];
 }
 
+void MyMapArray::_Get_str_(char* buffer)
+{
+    
+}
+
 MyFile::MyFile()
 {
-    hFile = hMapFile = base = NULL;
+    hFile = hMapFile = NULL;
     mode = MapAll;
     this->_file_size = 0;
     this->FileOpenFlag = 0;
@@ -138,7 +144,7 @@ MyFile::MyFile()
 
 MyFile::MyFile(const char* _path, unsigned OpenFlag, MapMode _mode)
 {
-    hFile = hMapFile =base = NULL;
+    hFile = hMapFile = NULL;
     mode = _mode;
     this->_file_size = 0;
     this->FileOpenFlag = OpenFlag;
@@ -158,11 +164,9 @@ void MyFile::close()
     if (FileOpenFlag & FILE_OPEN_SUCCESSFUL)_close();
 }
 
-void MyFile::read(void* _Buffer, unsigned _count)
+void MyFile::read(char* _Buffer, unsigned _count)
 {
-    auto ptr = GetioPointer();
-    _nosafe_copy(_Buffer, ptr.ptr, _count);
-
+    _read(io_ptr, _Buffer, _count);
 }
 
 void MyFile::write(void* _SRC, unsigned _count)
@@ -170,25 +174,12 @@ void MyFile::write(void* _SRC, unsigned _count)
     if (io_ptr + _count >= _file_size) {
         _space_enlarge(_file_size + _count);
     }
-    _write(io_ptr, _SRC,_count);
+    _write(io_ptr, (char*)_SRC,_count);
 }
 
-MyFile::Myptr MyFile::GetioPointer()
+MyFile& MyFile::operator>>(char*buffer)
 {
-    Myptr ret;
-    ret.ptr = _GET_POINTER(base, io_ptr);
-    if (mode == MapAll) {
-        ret._block_size = _file_size - io_ptr;
-    }
-    else {
-        ret._block_size = MY_MAP_PAGE_SIZE - _GET_PTR_LOW_(io_ptr);
-    }
-    return ret;
-    MyFile FILE;
-}
 
-MyFile& MyFile::operator>>(char*)
-{
     return *this;
 }
 
@@ -198,17 +189,6 @@ bool MyFile::_open(const char* path)
         if (!_MyCreateFile(path))break;
         create_file_map();
         if (hMapFile == NULL)break;
-        if (mode == MapAll) {
-            base = MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, _file_size);
-            if (!base) {
-                CloseHandle(hFile);
-                hFile = NULL;
-                break;
-            }
-        }
-        else {
-            base = MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, MY_MAP_PAGE_SIZE);
-        }
         FileOpenFlag |= FILE_OPEN_SUCCESSFUL;
         return true;
     } while (false);
@@ -217,41 +197,77 @@ bool MyFile::_open(const char* path)
 
 void MyFile::_close()
 {
-    UnmapViewOfFile(base);
     CloseHandle(hMapFile);
     CloseHandle(hFile);
     hMapFile = hFile = NULL;
     FileOpenFlag &= (FILE_OPEN_SUCCESSFUL ^ 0xFFFFFFFF);
 }
 
-void MyFile::_write(unsigned long long write_at_where, const void* Src, unsigned count)
+void MyFile::_write(unsigned long long write_at_where, const char* Src, unsigned count)
 {
-    if (mode == MapAll) {
-        auto _size = _file_size - write_at_where;
-        memcpy_s(
-            _GET_POINTER(base, write_at_where), _size,
-            Src, count);
-        return;
-    }
     void* ptr = 0;
-    for(; count > MY_MAP_PAGE_SIZE; count -= MY_MAP_PAGE_SIZE) {
+    do {
+        if (mode == MapAll) {
+            auto _size = _file_size - write_at_where;
+
+            break;
+        }
+        for (; count > MY_MAP_PAGE_SIZE; count -= MY_MAP_PAGE_SIZE) {
+            ptr = MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS,
+                (unsigned)(write_at_where >> 32), (unsigned)write_at_where,
+                MY_MAP_PAGE_SIZE);
+            if (ptr == NULL) {
+                count = 0;
+                break;
+            }
+            memcpy_s(ptr, MY_MAP_PAGE_SIZE,
+                Src, MY_MAP_PAGE_SIZE);
+            UnmapViewOfFile(ptr);
+            write_at_where += MY_MAP_PAGE_SIZE;
+            Src += MY_MAP_PAGE_SIZE;
+        }
+        if (count == 0)break;
         ptr = MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS,
             (unsigned)(write_at_where >> 32), (unsigned)write_at_where,
             MY_MAP_PAGE_SIZE);
-        if (ptr == NULL)return;
-        memcpy_s(ptr, MY_MAP_PAGE_SIZE,
-            Src, MY_MAP_PAGE_SIZE);
+        if (ptr == NULL)break;
+        memcpy_s(ptr, MY_MAP_PAGE_SIZE, Src, count);
         UnmapViewOfFile(ptr);
-        write_at_where += MY_MAP_PAGE_SIZE;
-    }
-    ptr = MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS,
-        (unsigned)(write_at_where >> 32), (unsigned)write_at_where,
-        MY_MAP_PAGE_SIZE);
-    if (ptr == NULL)return;
-    memcpy_s(ptr, MY_MAP_PAGE_SIZE,
-        Src, count);
-    UnmapViewOfFile(ptr);
-    //for (; write_at_where < _write_end; write_at_where += MY_MAP_PAGE_SIZE);
+    } while (false);
+}
+
+void MyFile::_read(unsigned long long _at, char* buffer, unsigned count)
+{
+    void* ptr;
+    do {
+        if (mode = MapAll) {
+            ptr = MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS,
+                0, 0, _file_size);
+            memcpy_s(buffer, count, _GET_POINTER(ptr, _at), count);
+            break;
+        }
+        for (; count > MY_MAP_PAGE_SIZE; count -= MY_MAP_PAGE_SIZE) {
+            ptr = MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS,
+                (unsigned)(_at >> 32), (unsigned)_at,
+                MY_MAP_PAGE_SIZE);
+            if (ptr == NULL) {
+                count = 0;
+                break;
+            }
+            _nosafe_copy(buffer, ptr, MY_MAP_PAGE_SIZE);
+            //memcpy_s(buffer, MY_MAP_PAGE_SIZE, ptr, MY_MAP_PAGE_SIZE);
+            UnmapViewOfFile(ptr);
+            buffer += MY_MAP_PAGE_SIZE;
+            _at += MY_MAP_PAGE_SIZE;
+        }
+        if (count == 0)break;
+        ptr = MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS,
+            (unsigned)(_at >> 32), (unsigned)_at,
+            MY_MAP_PAGE_SIZE);
+        if (ptr == NULL) break;
+        _nosafe_copy(buffer, ptr, count);
+        //memcpy_s(buffer, count, ptr, count);
+    } while (false);
 }
 
 int MyFile::_MyCreateFile(const char* _path)
@@ -298,6 +314,36 @@ MyMap MyFile::_map_1(unsigned long long offset)
 
 void MyFile::_nosafe_copy(void* dst, const void* src, unsigned cnt)
 {
+    if (cnt < 32)goto _Copy_4;
+    if (reinterpret_cast<_MY_PTR_STORE_TYPE>(dst) % 16 !=
+        reinterpret_cast<_MY_PTR_STORE_TYPE>(src) % 16)goto _Copy_4;
+    //copy 16
+    while (reinterpret_cast<_MY_PTR_STORE_TYPE>(dst) % 16 != 0) {
+        ((char*)dst)[0] = ((char*)src)[0];
+        dst = reinterpret_cast<void*>(reinterpret_cast<_MY_PTR_STORE_TYPE>(dst) + 1);
+        src = reinterpret_cast<const void*>(reinterpret_cast<_MY_PTR_STORE_TYPE>(src) + 1);
+    }
+    for (; cnt >= 16; cnt -= 16) {
+        register __m128 _rt = _mm_load_ps((const float*)src);
+        _mm_store_ps((float*)dst, _rt);
+        dst = reinterpret_cast<void*>(reinterpret_cast<_MY_PTR_STORE_TYPE>(dst) + 16);
+        src = reinterpret_cast<const void*>(reinterpret_cast<_MY_PTR_STORE_TYPE>(src) + 16);
+    }
+    goto _Normal_copy;
+_Copy_4:
+    if (reinterpret_cast<_MY_PTR_STORE_TYPE>(dst) % 4 !=
+        reinterpret_cast<_MY_PTR_STORE_TYPE>(src) % 4)goto _Copy_4;
+    while (reinterpret_cast<_MY_PTR_STORE_TYPE>(dst) % 4 != 0) {
+        ((char*)dst)[0] = ((char*)src)[0];
+        dst = reinterpret_cast<void*>(reinterpret_cast<_MY_PTR_STORE_TYPE>(dst) + 1);
+        src = reinterpret_cast<const void*>(reinterpret_cast<_MY_PTR_STORE_TYPE>(src) + 1);
+    }
+    for (; cnt >= 4; cnt -= 4) {
+        *((unsigned int*)dst) = *((const unsigned int*)src);
+        dst = reinterpret_cast<void*>(reinterpret_cast<_MY_PTR_STORE_TYPE>(dst) + 4);
+        src = reinterpret_cast<const void*>(reinterpret_cast<_MY_PTR_STORE_TYPE>(src) + 5);
+    }
+_Normal_copy:
     for (unsigned i = 0; i < cnt; ++i) {
         ((char*)dst)[i] = ((const char*)src)[i];
     }
@@ -306,12 +352,5 @@ void MyFile::_nosafe_copy(void* dst, const void* src, unsigned cnt)
 void MyFile::_space_enlarge(unsigned long long _nw_capa)
 {
     _file_size = _nw_capa;
-    UnmapViewOfFile(base);
     create_file_map();
-    if (mode == MapAll) {
-        base = MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, _file_size);
-    }
-    else {
-        base = MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, MY_MAP_PAGE_SIZE);
-    }
 }
