@@ -10,4 +10,17 @@
 // 添加要在此处预编译的标头
 #include "framework.h"
 
+#if _WIN64 
+#define _MY_PTR_STORE_TYPE unsigned long long int
+#else 
+#define MY_PTR_STORE_TYPE unsigned int
+#endif
+
+#define _GET_OFFSET(_POINTER_, _BASE_) (reinterpret_cast<_MY_PTR_STORE_TYPE>(_POINTER_)\
+ - reinterpret_cast<_MY_PTR_STORE_TYPE>(_BASE_))
+#define _GET_POINTER(_BASE_, _OFFSET_) reinterpret_cast<void*>(\
+reinterpret_cast<_MY_PTR_STORE_TYPE>(_BASE_)+(_OFFSET_))
+
+#include"my_fsm.h"
+
 #endif //PCH_H

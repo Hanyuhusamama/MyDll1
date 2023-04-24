@@ -52,7 +52,7 @@ void MyMapArray::_realloc(unsigned _new_capa)
 void MyMapArray::_push_back(const MyMap& _x)
 {
     if (my_size == my_capacity) {
-        _realloc(my_size + my_size >> 2 + 1);
+        _realloc(my_size + (my_size >> 2) + 1);
     }
     new (my_data + my_size) MyMap(_x);
     ++my_size;
@@ -148,6 +148,12 @@ MyFile::MyFile(const char* _path, unsigned OpenFlag, MapMode _mode)
     _open(_path);
 }
 
+MyFile::~MyFile() {
+    if (FileOpenFlag & FILE_OPEN_SUCCESSFUL) {
+        _close();
+    }
+}
+
 bool MyFile::open(const char* filename, unsigned OpenFlag, MapMode _mode)
 {
     if (OpenFlag&FILE_OPEN_SUCCESSFUL)_close();
@@ -172,6 +178,7 @@ void MyFile::write(const void* _SRC, unsigned _count)
         _space_enlarge(_file_size + _count);
     }
     _write(io_ptr, (char*)_SRC,_count);
+    io_ptr += _count;
 }
 
 bool MyFile::_open(const char* path)

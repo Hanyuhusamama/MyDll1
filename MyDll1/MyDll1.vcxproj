@@ -141,6 +141,7 @@
   <ItemGroup>
     <ClInclude Include="framework.h" />
     <ClInclude Include="my_file_operatoin.h" />
+    <ClInclude Include="my_fsm.h" />
     <ClInclude Include="my_mouse_event.h" />
     <ClInclude Include="my_windows_operation.h" />
     <ClInclude Include="pch.h" />
@@ -148,6 +149,7 @@
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="my_file_operatoin.cpp" />
+    <ClCompile Include="my_fsm.cpp" />
     <ClCompile Include="my_mouse_event.cpp" />
     <ClCompile Include="my_windows_operation.cpp" />
     <ClCompile Include="pch.cpp">

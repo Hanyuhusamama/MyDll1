@@ -8,16 +8,14 @@
 #define MY_API __declspec(dllimport)
 #endif 
 #endif // !MY_API
+
+#ifndef _MY_PTR_STORE_TYPE
 #if _WIN64 
 #define _MY_PTR_STORE_TYPE unsigned long long int
 #else 
 #define MY_PTR_STORE_TYPE unsigned int
 #endif
-
-#define _GET_OFFSET(_POINTER_, _BASE_) (reinterpret_cast<_MY_PTR_STORE_TYPE>(_POINTER_)\
- - reinterpret_cast<_MY_PTR_STORE_TYPE>(_BASE_))
-#define _GET_POINTER(_BASE_, _OFFSET_) reinterpret_cast<void*>(\
-reinterpret_cast<_MY_PTR_STORE_TYPE>(_BASE_)+(_OFFSET_))
+#endif
 
 #define MY_MAP_PAGE_SIZE 65536
 
@@ -100,6 +98,7 @@ public:
 	MyFile();
 	MyFile(const char* _path, unsigned OpenFlag, MapMode _mode = MapAll);
 	MyFile(const MyFile& _b) = delete;
+	~MyFile();
 	bool open(const char* filename, unsigned OpenFlag, MapMode _mode = MapAll);
 	void close();
 	void read(char* _Buffer, unsigned _count);
@@ -133,6 +132,8 @@ private:
 	void _space_enlarge(unsigned long long _nw_capa);
 };
 
+#define OVERRIDE_OPERATION
+
 #ifdef OVERRIDE_OPERATION
 #define _MY_OVERRIDE_OPERATORS_ 1
 #else
@@ -159,9 +160,10 @@ MyFile& operator<< (MyFile& _File, const char* _str) {
 
 #define _My_OVERRIDE_OPERA_LS(__TYPE__) MyFile& operator<< (MyFile& _File,__TYPE__ _val)
 
-#define _My_OVERRIDE_OPERA_RS(__TYPE__) MyFile& operator>> (MyFile& _File,__TYPE__& _val)
+#define _My_OVERRIDE_OPERA_RS(__TYPE__) MyFile& operator>> (MyFile& _File,__TYPE__& _var)
 
 #include<stdio.h>
+#include<stdlib.h>
 
 _My_OVERRIDE_OPERA_LS(int) {
 	char _buffer[32];
@@ -170,9 +172,23 @@ _My_OVERRIDE_OPERA_LS(int) {
 	return _File;
 }
 
-_My_OVERRIDE_OPERA_LS(long long) {
+_My_OVERRIDE_OPERA_LS(unsigned int) {
 	char _buffer[32];
-	sprintf_s(_buffer, "%dl", _val);
+	sprintf_s(_buffer, "%ud", _val);
+	_File.put_str(_buffer);
+	return _File;
+}
+
+_My_OVERRIDE_OPERA_LS(long long int) {
+	char _buffer[64];
+	sprintf_s(_buffer, "%lld", _val);
+	_File.put_str(_buffer);
+	return _File;
+}
+
+_My_OVERRIDE_OPERA_LS(unsigned long long int) {
+	char _buffer[64];
+	sprintf_s(_buffer, "%llu", _val);
 	_File.put_str(_buffer);
 	return _File;
 }
@@ -191,8 +207,51 @@ _My_OVERRIDE_OPERA_LS(const void*) {
 	return _File;
 }
 
+MY_API long long int __stdcall my_string_to_int(const char* _str);
 
+MY_API unsigned long long __stdcall my_string_to_intu(const char* _str);
 
+_My_OVERRIDE_OPERA_RS(int) {
+	char _buffer[32];
+	_File >> _buffer;
+	_var = (int)my_string_to_int(_buffer);
+	return _File;
+}
+
+_My_OVERRIDE_OPERA_RS(long long) {
+	char _buffer[64];
+	_File >> _buffer;
+	_var = my_string_to_int(_buffer);
+	return _File;
+}
+
+_My_OVERRIDE_OPERA_RS(unsigned int) {
+	char _buffer[32];
+	_File >> _buffer;
+	_var = (unsigned int)my_string_to_intu(_buffer);
+	return _File;
+}
+
+_My_OVERRIDE_OPERA_RS(unsigned long long) {
+	char _buffer[64];
+	_File >> _buffer;
+	_var = my_string_to_intu(_buffer);
+	return _File;
+}
+
+_My_OVERRIDE_OPERA_RS(double) {
+	char _buffer[64];
+	_File >> _buffer;
+	_var = atof(_buffer);
+	return _File;
+}
+
+_My_OVERRIDE_OPERA_RS(void*) {
+	char _buffer[64];
+	_File >> _buffer;
+	_var = reinterpret_cast<void*>(my_string_to_intu(_buffer));
+	return _File;
+}
 
 #endif // !MY_OVERRIDE_OPERATORS
 

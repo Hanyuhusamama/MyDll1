@@ -30,6 +30,9 @@
     <ClInclude Include="my_windows_operation.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="my_fsm.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp">
@@ -45,6 +48,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="my_windows_operation.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="my_fsm.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
